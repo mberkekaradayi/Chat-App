@@ -26,7 +26,7 @@ const Home = () => {
           </Link>
         </div>
       </div>
-      <footer className="text-center p-4">
+      <footer className="text-center p-4 mb-4">
         <p className="text-sm text-gray-400 font-extralight">
           &copy; {new Date().getFullYear()} Chatify. All rights reserved.
           <a

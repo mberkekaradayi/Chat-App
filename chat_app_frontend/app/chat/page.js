@@ -185,7 +185,13 @@ export default function ChatPage() {
         </div>
 
         {selectedContact && (
-          <div className="p-5 bg-gray-800 flex items-center gap-2 rounded-b-lg">
+          <div className="p-4 bg-gray-800 flex items-center gap-2 rounded-b-lg">
+            <button
+              className="p-2 bg-gray-600 rounded-full text-white hover:bg-gray-700"
+              onClick={() => setInputMessage((prev) => prev + "😊")}
+            >
+              😊
+            </button>
             <input
               type="text"
               placeholder="Type your message..."
