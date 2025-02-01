@@ -11,7 +11,7 @@ export default function Sidebar({ contacts, onSelectContact, userEmail }) {
 
   // Filter contacts based on the search term
   const filteredContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+    contact.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -64,26 +64,17 @@ export default function Sidebar({ contacts, onSelectContact, userEmail }) {
               {/* Avatar */}
               <img
                 src={contact.avatar}
-                alt={contact.name}
+                alt={contact.email}
                 className="w-10 h-10 rounded-full mr-3"
               />
               {/* Text Content */}
               <div className="flex-grow">
-                <div className="font-semibold text-sm">{contact.name}</div>
-                {contact.isGroup && (
-                  <span className="text-xs text-blue-400">(Group)</span>
-                )}
+                <div className="font-semibold text-sm">{contact.email}</div>
               </div>
-              {/* Status */}
-              {contact.status && (
-                <span
-                  className={`text-xs font-medium ${
-                    contact.status === "online"
-                      ? "text-green-400"
-                      : "text-gray-400"
-                  }`}
-                >
-                  {contact.status}
+              {/* Show unread message count */}
+              {contact.unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {contact.unreadCount}
                 </span>
               )}
             </div>

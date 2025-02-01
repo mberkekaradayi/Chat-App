@@ -32,7 +32,7 @@ export default function Signup() {
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
-      console.log({ response: response.data });
+      // console.log({ response: response.data });
       // set the isSuccess state to true
       setIsSuccess(true);
     } catch (error) {

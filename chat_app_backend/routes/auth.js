@@ -55,16 +55,27 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// return all registered users
+router.get("/users", async (req, res) => {
+  try {
+    const users = await pool.query("SELECT id, email FROM users");
+    res.status(200).json(users.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Internal Server Error." });
+  }
+});
+
 // Save a new message
 router.post("/messages", async (req, res) => {
-  const { sender, recipient, message } = req.body;
+  const { sender_email, recipient_email, content } = req.body;
   console.log({ message: req.body });
 
   try {
     const result = await pool.query(
-      `INSERT INTO messages (sender, recipient, message) 
+      `INSERT INTO messages (sender_email, recipient_email, content) 
          VALUES ($1, $2, $3) RETURNING *`,
-      [sender, recipient, message]
+      [sender_email, recipient_email, content]
     );
 
     res.status(201).json(result.rows[0]); // Return the saved message
@@ -76,16 +87,17 @@ router.post("/messages", async (req, res) => {
 
 // Fetch messages for a specific chat
 router.get("/messages", async (req, res) => {
-  const { sender, recipient } = req.query;
+  const { sender_email, recipient_email } = req.query;
   console.log({ "fetch messages": req.query });
+
   try {
-    // Fetch one-to-one chat messages
+    // Fetch one-to-one chat messages using email
     const result = await pool.query(
       `SELECT * FROM messages 
-         WHERE (sender = $1 AND recipient = $2) 
-            OR (sender = $2 AND recipient = $1) 
+         WHERE (sender_email = $1 AND recipient_email = $2) 
+            OR (sender_email = $2 AND recipient_email = $1) 
          ORDER BY timestamp ASC`,
-      [sender, recipient]
+      [sender_email, recipient_email]
     );
 
     res.status(200).json(result.rows); // Return the fetched messages
@@ -95,7 +107,7 @@ router.get("/messages", async (req, res) => {
   }
 });
 
-// Remove a message from a specific chat- Delete a message by ID
+// Remove a message from a specific chat - Delete a message by ID
 router.delete("/messages/:id", async (req, res) => {
   const { id } = req.params;
   console.log({ "delete message": req.params });
@@ -109,6 +121,44 @@ router.delete("/messages/:id", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: "Error deleting message" });
+  }
+});
+
+//
+router.get("/unread-messages", async (req, res) => {
+  const { user_email } = req.query;
+
+  try {
+    const unreadMessages = await pool.query(
+      `SELECT sender_email, COUNT(*) as unread_count 
+       FROM messages 
+       WHERE recipient_email = $1 AND is_read = false 
+       GROUP BY sender_email`,
+      [user_email]
+    );
+
+    res.status(200).json(unreadMessages.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Error fetching unread messages count" });
+  }
+});
+
+router.put("/messages/mark-read", async (req, res) => {
+  const { sender_email, recipient_email } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE messages 
+       SET is_read = true 
+       WHERE sender_email = $1 AND recipient_email = $2 AND is_read = false`,
+      [sender_email, recipient_email]
+    );
+
+    res.status(200).json({ message: "Messages marked as read" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Error updating messages as read" });
   }
 });
 

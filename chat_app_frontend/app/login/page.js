@@ -33,7 +33,7 @@ export default function Login() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      console.log({ response: response.data });
+      // console.log({ response: response.data });
       // set the isLoggingIn state to true
       setIsLoggedIn(true);
     } catch (error) {

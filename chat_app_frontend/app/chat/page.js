@@ -5,14 +5,8 @@ import axios from "axios";
 import Sidebar from "../components/sidebar";
 import { useSearchParams } from "next/navigation";
 
-export const contacts = [
-  { id: 1, name: "Taylor", status: "online", avatar: "/avatars/avatar1.png" },
-  { id: 2, name: "Dusan", status: "offline", avatar: "/avatars/avatar2.png" },
-  { id: 3, name: "Charlie", status: "online", avatar: "/avatars/avatar3.png" },
-  { id: 4, name: "Dzeko", status: "online", avatar: "/avatars/avatar4.png" },
-];
-
 export default function ChatPage() {
+  const [contacts, setContacts] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -20,23 +14,99 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
 
   const searchParams = useSearchParams();
-  const email = searchParams.get("email");
+  const email = searchParams.get("email"); // Logged-in user's email
 
+  // Fetch users with unread message counts
+  useEffect(() => {
+    const fetchUsersWithUnreadCounts = async () => {
+      try {
+        // Fetch all users
+        const usersResponse = await axios.get(
+          "http://localhost:3001/auth/users"
+        );
+        // Filter out the logged-in user
+        let filteredUsers = usersResponse.data.filter(
+          (user) => user.email !== email
+        );
+
+        // Fetch unread messages count
+        const unreadResponse = await axios.get(
+          "http://localhost:3001/auth/unread-messages",
+          { params: { user_email: email } }
+        );
+
+        const unreadCounts = unreadResponse.data.reduce((acc, item) => {
+          acc[item.sender_email] = item.unread_count;
+          return acc;
+        }, {});
+
+        // Attach unread count to each user
+        filteredUsers = filteredUsers.map((user) => ({
+          id: user.id,
+          email: user.email,
+          avatar: "/avatars/avatar3.png",
+          unreadCount: unreadCounts[user.email] || 0,
+        }));
+
+        setContacts(filteredUsers);
+      } catch (error) {
+        console.error("Error fetching users with unread counts:", error);
+      }
+    };
+
+    fetchUsersWithUnreadCounts();
+  }, [email]);
+
+  /* Handle contact selection */
   const handleSelectContact = (contact) => {
     setSelectedContact(contact);
-    setMessages([]); // Clear previous messages
+    fetchMessages(contact.email);
+    markMessagesAsRead(contact.email, email);
   };
 
+  const markMessagesAsRead = async (sender_email, recipient_email) => {
+    try {
+      await axios.put("http://localhost:3001/auth/messages/mark-read", {
+        sender_email,
+        recipient_email,
+      });
+
+      // Update unread message count in the UI
+      setContacts((prevContacts) =>
+        prevContacts.map((contact) =>
+          contact.email === sender_email
+            ? { ...contact, unreadCount: 0 }
+            : contact
+        )
+      );
+    } catch (err) {
+      console.error("Error marking messages as read:", err);
+    }
+  };
+
+  /* Fetch messages for the selected chat */
+  const fetchMessages = async (recipient_email) => {
+    try {
+      const response = await axios.get("http://localhost:3001/auth/messages", {
+        params: { sender_email: email, recipient_email },
+      });
+      setMessages(response.data);
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    }
+  };
+
+  /* Send a new message */
   const handleSendMessage = async () => {
-    if (inputMessage.trim() === "") return;
+    if (!selectedContact || inputMessage.trim() === "") return;
 
     try {
       const response = await axios.post(
         "http://localhost:3001/auth/messages",
         {
-          sender: email,
-          recipient: selectedContact.name,
-          message: inputMessage,
+          sender_email: email, // Logged-in user's email
+          recipient_email: selectedContact.email, // Contact's email
+          content: inputMessage,
         },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -48,33 +118,7 @@ export default function ChatPage() {
     }
   };
 
-  const fetchMessages = async () => {
-    if (!selectedContact) return;
-
-    try {
-      const response = await axios.get("http://localhost:3001/auth/messages", {
-        params: {
-          sender: email,
-          recipient: selectedContact.name,
-        },
-      });
-
-      setMessages(response.data);
-    } catch (err) {
-      console.error("Error fetching messages:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchMessages();
-  }, [selectedContact]);
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
+  /* Handle Enter key for sending messages */
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -82,8 +126,16 @@ export default function ChatPage() {
     }
   };
 
+  /** 🔹 Auto-scroll to the latest message */
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  /** 🔹 Confirm and delete a message */
   const confirmDeleteMessage = (id) => {
-    setMessageToDelete(id); // Set the message to be deleted
+    setMessageToDelete(id);
   };
 
   const handleDeleteMessage = async () => {
@@ -92,13 +144,14 @@ export default function ChatPage() {
         `http://localhost:3001/auth/messages/${messageToDelete}`
       );
       setMessages((prevMessages) =>
-        prevMessages.filter((message) => message.id !== messageToDelete)
+        prevMessages.filter((msg) => msg.id !== messageToDelete)
       );
-      setMessageToDelete(null); // Clear the deletion state
+      setMessageToDelete(null);
     } catch (err) {
       console.error("Error deleting message:", err);
     }
   };
+
   return (
     <div className="flex justify-center items-center h-screen bg-gray-900 text-white">
       <Sidebar
@@ -113,10 +166,10 @@ export default function ChatPage() {
             <>
               <img
                 src={selectedContact.avatar}
-                alt={selectedContact.name}
+                alt={selectedContact.email}
                 className="w-8 h-8 rounded-full"
               />
-              <span>{selectedContact.name}</span>
+              <span>{selectedContact.email}</span>
             </>
           )}
         </div>
@@ -128,18 +181,22 @@ export default function ChatPage() {
                 <div
                   key={message.id}
                   className={`flex items-end ${
-                    message.sender === email ? "justify-end" : "justify-start"
+                    message.sender_email === email
+                      ? "justify-end"
+                      : "justify-start"
                   }`}
                 >
                   <div
                     key={message.id}
                     className={`flex items-end ${
-                      message.sender === email ? "justify-end" : "justify-start"
+                      message.sender_email === email
+                        ? "justify-end"
+                        : "justify-start"
                     }`}
                   >
                     <div
                       className={`relative flex items-center justify-between p-3 rounded-lg shadow-lg mt-3 ${
-                        message.sender === email
+                        message.sender_email === email
                           ? "bg-blue-600 text-white"
                           : "bg-gray-600 text-white"
                       }`}
@@ -150,7 +207,7 @@ export default function ChatPage() {
                       }}
                     >
                       {/* Message Text */}
-                      <div className="flex-grow">{message.message}</div>
+                      <div className="flex-grow">{message.content}</div>
 
                       {/* Delete Button */}
                       <button
@@ -163,9 +220,15 @@ export default function ChatPage() {
                       >
                         🗑️
                       </button>
-                      {/* Timestamp */}
                       <div className="text-xs text-gray-300 mt-1">
-                        {new Date(message.timestamp).toLocaleTimeString()}
+                        {new Date(message.timestamp).toLocaleString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
                       </div>
                     </div>
                   </div>
