@@ -5,41 +5,47 @@ import { FaHome } from "react-icons/fa";
 import axios from "axios";
 
 export default function Signup() {
+  // State for form fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  // State for error handling and success status
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSignup = async (e) => {
+    // Clear any previous error messages
     setError("");
     e.preventDefault();
 
+    // Validate that all required fields are filled
     if (!email || !password || !confirmPassword) {
       setError("All fields are required.");
       return;
     }
 
+    // Verify that password and confirmation match
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
     try {
-      // send a post request to the server with the email and password
+      // Attempt to register the user by sending credentials to the backend
       const response = await axios.post(
         "http://localhost:3001/auth/register",
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
-      // console.log({ response: response.data });
-      // set the isSuccess state to true
+      // If registration is successful, update UI to show success state
       setIsSuccess(true);
     } catch (error) {
-      // handle errors
+      // Handle different types of registration errors
       if (error.response) {
+        // Display server-provided error message or default to duplicate user message
         setError(error.response.data.message || "User is already registered.");
       } else {
+        // Display generic error for network/connection issues
         setError("An error occurred. Please try again.");
       }
     }
